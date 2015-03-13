@@ -1,0 +1,33 @@
+{
+  "name": "instrumental",
+  "version": "0.0.0",
+  "description": "Javascript debugging in Javascript",
+  "main": "lib/instrumental.js",
+  "scripts": {
+    "test": "gulp test"
+  },
+  "author": "James Gilles",
+  "license": "MIT",
+  "repository": {
+      "type": "git",
+      "url": "https://github.com/kazimuth/instrumental"
+  },
+  "dependencies": {
+    "deepcopy": "^0.4.0",
+    "falafel": "^1.0.1"
+  },
+  "devDependencies": {
+    "coffee-script": "^1.9.1",
+    "del": "^1.1.1",
+    "gulp": "^3.8.11",
+    "gulp-chmod": "^1.2.0",
+    "gulp-coffee": "^2.3.1",
+    "gulp-mocha": "^2.0.0",
+    "gulp-rename": "^1.2.0",
+    "mocha": "^2.2.1"
+  },
+  "bin": {
+    "play": "bin/play"
+  }
+
+}

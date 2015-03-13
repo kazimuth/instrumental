@@ -1,0 +1,60 @@
+#!/usr/bin/env node --harmony_generators
+var instrumental = require('../lib/instrumental.js');
+var repl = require('repl');
+
+function readCode() {
+    console.log("Enter some _simple_ (no functions) javascript code! Enter 'done' when done.");
+    code = "";
+    process.stdin.on("data", function(text) {
+        if (text == "done\n") {
+            debug();
+            return;
+        }
+        code += text;
+    });
+}
+
+function debug() {
+    console.log("Processing code...");
+    debug = new instrumental.Debugger(code);
+    console.log("Done!");
+    console.log("Modified code: \n"+debug.processedSource);
+    console.log("Starting debugger. Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state")
+    process.stdin.on("data", function(text) {
+        console.log("Step: "+debug.eventIndex);
+        comm = text.toString().split(" ");
+        switch(comm[0][0]){
+            case 'c':
+                var n;
+                if (comm.length > 1) {
+                    n = parseInt(comm[1]);
+                    if (isNaN(n)) {
+                        n = 1;
+                    }
+                } else {
+                    n = 1;
+                }
+
+                debug.steps(n);
+                break;
+            case 'b':
+                var n;
+                if (comm.length > 1) {
+                    n = parseInt(comm[1]);
+                    if (isNaN(n)) {
+                        n = 1;
+                    }
+                } else {
+                    n = 1;
+                }
+                debug.stepsBack(n);
+                break;
+            case 'v':
+                console.log(debug.currentState);
+                break;
+        }
+        process.stdout.write("debug> ");
+    });
+}
+
+readCode();
