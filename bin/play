@@ -1,41 +1,97 @@
 #!/usr/bin/env node --harmony_generators
 var instrumental = require('../lib/instrumental.js');
-var repl = require('repl');
+var promise = require('promise');
+var fs = require('fs');
+var beautify = require('js-beautify').js_beautify;
+var clc = require('cli-color');
+
+var rl = require('readline').createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+function horizontalLine() {
+    console.log(new Array(process.stdout.columns + 1).join('-'));
+}
+
+logColor = clc.magenta;
+askColor = clc.blue;
 
 function readCode() {
-    console.log("Enter some _simple_ (no functions) javascript code! Enter 'done' when done.");
-    code = "";
-    process.stdin.on("data", function(text) {
-        if (text == "done\n") {
-            debug();
-            return;
+    rl.question(askColor("Would you like to read a file or enter code by hand?") + " [f]/h" + askColor("> "), function(answer) {
+        if (answer[0] == 'f' || answer.length == 0) {
+            rl.question(askColor("What file?") + " [example.js]" + askColor("> "), function(answer) {
+                if (answer.length == 0) {
+                    var file = "example.js";
+                } else {
+                    var file = answer;
+                }
+                var code = fs.readFileSync(file, "utf-8");
+                console.log(logColor("Input code:"));
+                horizontalLine();
+                console.log(code);
+                horizontalLine();
+                debug(code);
+            });
+        } else {
+            console.log(askColor("Okay, input some code (^C for done):"));
+            rl.setPrompt(askColor("> "));
+            rl.prompt();
+            
+            var code = "";
+
+            function lineCallback(text) {
+                code += text;
+                rl.prompt();
+            }
+            function sigintCallback() {
+                rl.removeListener('line', lineCallback);
+                rl.removeListener('SIGINT', sigintCallback);
+                console.log("^C");
+                debug(code);
+            }
+            rl.on('line', lineCallback);
+            rl.on('SIGINT', sigintCallback);
         }
-        code += text;
     });
 }
 
-function debug() {
-    console.log("Processing code...");
-    debug = new instrumental.Debugger(code);
-    console.log("Done!");
-    console.log("Modified code: \n"+debug.processedSource);
-    console.log("Starting debugger. Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state")
-    process.stdin.on("data", function(text) {
-        console.log("Step: "+debug.eventIndex);
-        comm = text.toString().split(" ");
+function debug(code) {
+    code = code.trim();
+    console.log(logColor("Processing code..."));
+    debug = new instrumental.Debugger(code, {snapshotFrequency: 10, logCallback: function(text){ console.log(logColor(text)); }});
+    console.log(logColor("Done! Modified code:"));
+    horizontalLine();
+    console.log(beautify(debug.processedSource));
+    horizontalLine();
+    console.log(logColor("Starting debugger. Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state."));
+    rl.setPrompt(askColor("debug> "));
+    rl.prompt();
+    rl.on("line", function(text) {
+        comm = text.split(" ");
         switch(comm[0][0]){
             case 'c':
                 var n;
                 if (comm.length > 1) {
                     n = parseInt(comm[1]);
                     if (isNaN(n)) {
+                        console.log("Can't parse n, assuming 1")
                         n = 1;
                     }
                 } else {
                     n = 1;
                 }
 
+                horizontalLine();
                 debug.steps(n);
+                horizontalLine();
+                range = debug.activeRange();
+                process.stdout.write(code.substring(0,range[0]));
+                process.stdout.write(clc.bgYellow.black(code.substring(range[0],range[1])));
+                process.stdout.write(code.substring(range[1], code.length));
+                process.stdout.write('\n');
+                horizontalLine();
+
                 break;
             case 'b':
                 var n;
@@ -52,8 +108,15 @@ function debug() {
             case 'v':
                 console.log(debug.currentState);
                 break;
+            case 'd':
+                console.log(JSON.stringify(debug));
+                break;
+            default:
+                console.log("What?");
+                break;
         }
-        process.stdout.write("debug> ");
+
+        rl.prompt();
     });
 }
 
