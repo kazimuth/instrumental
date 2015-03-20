@@ -1,6 +1,5 @@
 #!/usr/bin/env node --harmony_generators
 var instrumental = require('../lib/instrumental.js');
-var promise = require('promise');
 var fs = require('fs');
 var beautify = require('js-beautify').js_beautify;
 var clc = require('cli-color');
@@ -64,7 +63,7 @@ function debug(code) {
     horizontalLine();
     console.log(beautify(debug.processedSource));
     horizontalLine();
-    console.log(logColor("Starting debugger. Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state."));
+    console.log(logColor("Starting debugger. Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state, h to see this help."));
     rl.setPrompt(askColor("debug> "));
     rl.prompt();
     rl.on("line", function(text) {
@@ -103,13 +102,26 @@ function debug(code) {
                 } else {
                     n = 1;
                 }
+
+                horizontalLine();
                 debug.stepsBack(n);
+                horizontalLine();
+                range = debug.activeRange();
+                process.stdout.write(code.substring(0,range[0]));
+                process.stdout.write(clc.bgYellow.black(code.substring(range[0],range[1])));
+                process.stdout.write(code.substring(range[1], code.length));
+                process.stdout.write('\n');
+                horizontalLine();
+
                 break;
             case 'v':
-                console.log(debug.currentState);
+                console.log(debug.currentCallStack);
                 break;
             case 'd':
                 console.log(JSON.stringify(debug));
+                break;
+            case 'h':
+                console.log(logColor("Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state, h to see this help."));
                 break;
             default:
                 console.log("What?");

@@ -15,7 +15,7 @@
   "dependencies": {
     "deepcopy": "^0.4.0",
     "falafel": "^1.0.1",
-    "js-beautify": "^1.5.5",
+    "js-beautify": "^1.5.5"
   },
   "devDependencies": {
     "cli-color": "^0.3.2",
