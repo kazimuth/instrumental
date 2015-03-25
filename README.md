@@ -3,7 +3,7 @@ Instrumental
 
 Hacks to instrument javascript with javascript.
 
-To install:
+To try the demo:
 
 ```sh
 $ git clone https://github.com/kazimuth/instrumental
