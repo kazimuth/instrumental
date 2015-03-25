@@ -92,6 +92,7 @@ class FunctionCall extends DebugEvent
         argString = ""
         for arg in @args
             argString += (debugFormat arg) + ', '
+        argString = argString[0..-3]
         logCallback "Calling #{@function} with arguments (#{argString})"
         return
 
@@ -100,6 +101,10 @@ class FunctionCall extends DebugEvent
 class DoneEvent extends DebugEvent
     constructor: () ->
         @range = [0,0]
+
+    log: (logCallback) ->
+        logCallback "Done."
+        return
 
 # Several things at the same time.
 class EventList extends DebugEvent
@@ -312,9 +317,10 @@ exports.Debugger = class Debugger
 
                 when 'FunctionDeclaration', 'FunctionExpression'
                     body = "var $$debug = {}; yield new $$events.EventList([#{node.start},#{if node.id then node.id.end else node.start + 8}], ["
-                    for param in node.params
-                        body += "new $$events.AssignmentEvent([0,0], \"#{param.source()}\", #{param.source()}, true),"
-                    body = body[0..-2]
+                    if node.params.length > 0
+                        for param in node.params
+                            body += "new $$events.AssignmentEvent([0,0], \"#{param.source()}\", #{param.source()}, true),"
+                        body = body[0..-2]
                     body += "]);"
 
                     for statement in node.body.body
@@ -330,36 +336,49 @@ exports.Debugger = class Debugger
 
                 when 'ReturnStatement'
                     node.update (
-                        "$$retHack.value = #{node.argument.source()};
-                         yield new $$events.InstFuncExit([#{node.start},#{node.end}],$$retHack.value);
-                         return;"
+                        "{
+                            $$retHack.value = #{node.argument.source()};
+                            yield new $$events.InstFuncExit([#{node.start},#{node.end}],$$retHack.value);
+                            return;
+                         }"
                     )
 
                 when 'CallExpression'
                     debugName = "call$#{node.start}$#{node.end}"
                     retName = debugName + "$retHack"
-                    args = ""
+                    args = "" # Used for instrumented functions
+                    argStorage = "" # Used to collect arguments to non-instrumented functions
+                    storedArgs = "" # The results of those arguments
+
                     for arg in node.arguments
                         args += arg.source() + ','
+                        argDebugName = "expr$#{arg.start}$#{arg.end}"
+                        argStorage += "$$debug.#{argDebugName} = (#{arg.source()}),"
+                        storedArgs += "$$debug.#{argDebugName},"
+
+                    storedArgs = storedArgs[0..-2] # remove trailing comma
                     
                     node.update (
                         "($$debug.#{debugName} = (#{node.callee.source()}),
                           $$debug.#{debugName}.constructor.name === 'GeneratorFunction' ?
                             ($$debug.#{retName} = {},
-                            yield new $$events.InstFuncEntry(
+                             yield new $$events.InstFuncEntry(
                                 [#{node.start},#{node.end}],
                                 $$debug.#{debugName}.name || \"#{node.callee.source().replace(/"/g,"'")}\"),
-                            yield* $$debug.#{debugName}(#{args} $$debug.#{retName}),
-                            $$debug.#{retName}.value)
+                             yield* $$debug.#{debugName}(#{args} $$debug.#{retName}),
+                             $$debug.#{retName}.value)
                             :
-                            ($$debug.#{debugName}(#{args[0..-2]})))"
+                            (#{argStorage}
+                             yield new $$events.FunctionCall(
+                                [#{node.start},#{node.end}],
+                                \"#{node.callee.source().replace(/"/g,"'")}\",
+                                [#{storedArgs}]),
+                             $$debug.#{debugName}(#{storedArgs})))"
                     )
         # </falafel>
 
         # Get the result of the falafel call
         @processedSource = generatorSource.toString()
-
-        console.log @processedSource
 
         # Run the processed source in an anonymous function, and capture the returned generator
         @generator = ((src)->
@@ -394,13 +413,17 @@ exports.Debugger = class Debugger
     # Step forward.
     step: ->
         # First, make sure we're not done.
-        return if @atEnd()
+        if @atEnd()
+            @events[@eventIndex].log @options.logCallback
+            return
 
         # @eventIndex is the index of the event we're about to apply
         @eventIndex++
         if @eventIndex < @events.length
             # We're just redoing stuff we've already seen.
-            @events[@eventIndex].applyTo @currentCallStack
+            event = @events[@eventIndex]
+            event.applyTo @currentCallStack
+            event.log @options.logCallback
         else
             # @eventIndex == @events.length; we don't have an event for this index yet.
 
@@ -411,6 +434,7 @@ exports.Debugger = class Debugger
             if result.done
                 # Iterator has completed, hasn't yielded a value
                 @events.push new DoneEvent()
+                @events[@eventIndex].log @options.logCallback
             else
                 # result.value is whatever was 'yield'ed.
                 event = result.value
@@ -421,9 +445,10 @@ exports.Debugger = class Debugger
                 # Log the event (visitor-style).
                 event.log @options.logCallback
 
-            # Check if we should take a snapshot.
-            if @eventIndex % @options.snapshotFrequency == 0
-                @savedCallStacks[@eventIndex] = deepcopy(@currentCallStack)
+                # Check if we should take a snapshot.
+                if @eventIndex % @options.snapshotFrequency == 0
+                    @savedCallStacks[@eventIndex] = deepcopy(@currentCallStack)
+        return
 
     # Take multiple steps.
     steps: (n) ->
@@ -449,11 +474,12 @@ exports.Debugger = class Debugger
         # Closest saved event.
         closestEventIndex = targetEventIndex - (targetEventIndex % @options.snapshotFrequency)
 
-        @currentCallStack = @savedCallStacks[closestEventIndex]
+        @currentCallStack = deepcopy(@savedCallStacks[closestEventIndex]) # Replay from the most recent snapshot.
         @eventIndex = closestEventIndex
+        @options.logCallback "Replaying events..."
         while @eventIndex < targetEventIndex and not @atEnd()
             @step()
-        @options.logCallback "Current event:"
+        @options.logCallback "\nCurrent event:"
         @events[@eventIndex].log @options.logCallback
         return
 

@@ -63,7 +63,7 @@ function debug(code) {
     horizontalLine();
     console.log(beautify(debug.processedSource));
     horizontalLine();
-    console.log(logColor("Starting debugger. Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state, h to see this help."));
+    console.log(logColor("Starting debugger. Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view the stack."));
     rl.setPrompt(askColor("debug> "));
     rl.prompt();
     rl.on("line", function(text) {
@@ -120,11 +120,8 @@ function debug(code) {
             case 'd':
                 console.log(JSON.stringify(debug));
                 break;
-            case 'h':
-                console.log(logColor("Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view state, h to see this help."));
-                break;
             default:
-                console.log("What?");
+                console.log(logColor("Type 'c [n]' to go forward (n steps, if n is included), 'b [n]' to go back, v to view the stack."));
                 break;
         }
 
