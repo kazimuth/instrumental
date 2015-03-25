@@ -40,7 +40,7 @@ function readCode() {
             var code = "";
 
             function lineCallback(text) {
-                code += text;
+                code += text + '\n';
                 rl.prompt();
             }
             function sigintCallback() {
