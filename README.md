@@ -10,7 +10,7 @@ $ git clone https://github.com/kazimuth/instrumental
 $ cd instrumental
 $ npm install
 $ npm install -g gulp
-$ gulp
+$ gulp build
 $ bin/play
 ```
 
